@@ -1,16 +1,19 @@
 FROM alpine:3.8
 
-RUN mkdir -p $HOME/.kube && \
-    mkdir /app
+ENV KUBECONFIG_BASE64=''
+ENV KUBECONFIG=/kube/kubeconfig
 
-COPY init.sh /usr/local/bin/init.sh
+WORKDIR /kube
 
-RUN apk update  && apk add --no-cache curl
+ADD entrypoint.sh /kube
 
-RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.11.2/bin/linux/amd64/kubectl && \
-  chmod +x ./kubectl && \
-  chmod +x /usr/local/bin/init.sh && \
-  mv ./kubectl /usr/local/bin/kubectl
+RUN set -x && \
+    apk add --no-cache curl ca-certificates && \
+    rm -rf /var/cache/apk/* && \
+    VERSION=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
+    curl https://storage.googleapis.com/kubernetes-release/release/$VERSION/bin/linux/amd64/kubectl >> /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl /kube/entrypoint.sh
 
-ENTRYPOINT [ "/usr/local/bin/init.sh" ]
-CMD ["config view"]
+ENTRYPOINT ["/kube/entrypoint.sh"]
+
+CMD [ "version", "--client" ]
